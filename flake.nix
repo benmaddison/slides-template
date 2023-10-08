@@ -14,7 +14,10 @@
   };
 
   outputs = { self, ... } @ inputs:
-    let code = _: s: s; in
+    let
+      lib = inputs.nixpkgs.lib;
+      code = _: s: s;
+    in
     {
       templates.default = {
         path = ./template;
@@ -32,16 +35,27 @@
                 ${inputs.nix-marp.packages.${system}.marp-cli}/bin/marp "$@"
               '';
             };
-            build = { src, outFormat }:
+            build = { src, outFormat, assetPaths }:
               pkgs.runCommand "build-${outFormat}-slides" { } (code "bash" ''
                 mkdir -p $out
-                ${marp-cli}/bin/marp -I ${src} -o $out --${outFormat}
+                ${lib.concatMapStrings (path: code "bash" ''
+                  cp -R "${src}/${path}" "$out/"
+                '') assetPaths}
+                tmphome="$(${pkgs.coreutils}/bin/mktemp -d)"
+                HOME="$tmphome" ${marp-cli}/bin/marp \
+                  -I ${src} -o $out \
+                  --allow-local-files \
+                  --${outFormat}
+                rm -rf "$tmphome"
               '');
-            watch = { src ? "./src" }:
+            watch = { src ? "./src", assetPaths ? [ ] }:
               pkgs.mkShell {
                 packages = [ marp-cli ];
                 shellHook = code "bash" ''
                   tmpdir="$(${pkgs.coreutils}/bin/mktemp -d)"
+                  ${lib.concatMapStrings (path: code "bash" ''
+                    ln -s "$(realpath ${src}/${path})" "$tmpdir/"
+                  '') assetPaths}
                   ${marp-cli}/bin/marp -I "./src" -o "$tmpdir" --watch --preview
                   rm -rf "$tmpdir"
                   exit
@@ -65,8 +79,10 @@
           in
           {
             inherit watch lint spell;
-            buildPdf = { src }: build { inherit src; outFormat = "pdf"; };
-            buildHtml = { src }: build { inherit src; outFormat = "html"; };
+            buildPdf = { src, assetPaths ? [ ] }:
+              build { inherit src assetPaths; outFormat = "pdf"; };
+            buildHtml = { src, assetPaths ? [ ] }:
+              build { inherit src assetPaths; outFormat = "html"; };
           };
       };
     };
