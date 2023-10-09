@@ -35,15 +35,15 @@
                 ${inputs.nix-marp.packages.${system}.marp-cli}/bin/marp "$@"
               '';
             };
-            build = { src, outFormat, assetPaths }:
+            build = { src, outFormat, inFile ? "slides.md", outFile, assetPaths }:
               pkgs.runCommand "build-${outFormat}-slides" { } (code "bash" ''
                 mkdir -p $out
                 ${lib.concatMapStrings (path: code "bash" ''
                   cp -R "${src}/${path}" "$out/"
                 '') assetPaths}
                 tmphome="$(${pkgs.coreutils}/bin/mktemp -d)"
-                HOME="$tmphome" ${marp-cli}/bin/marp \
-                  -I ${src} -o $out \
+                HOME="$tmphome" ${marp-cli}/bin/marp "${src}/${inFile}" \
+                  -o "$out/${outFile}" \
                   --allow-local-files \
                   --${outFormat}
                 rm -rf "$tmphome"
@@ -80,9 +80,9 @@
           {
             inherit watch lint spell;
             buildPdf = { src, assetPaths ? [ ] }:
-              build { inherit src assetPaths; outFormat = "pdf"; };
+              build { inherit src assetPaths; outFormat = "pdf"; outFile = "slides.pdf"; };
             buildHtml = { src, assetPaths ? [ ] }:
-              build { inherit src assetPaths; outFormat = "html"; };
+              build { inherit src assetPaths; outFormat = "html"; outFile = "index.html"; };
           };
       };
     };
