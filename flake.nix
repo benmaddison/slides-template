@@ -61,21 +61,16 @@
                   exit
                 '';
               };
-            lint = { src }:
+            lint = { src, config }:
               pkgs.runCommand "lint-slides" { } (code "bash" ''
-                ${pkgs.nodePackages.markdownlint-cli}/bin/markdownlint "${src}/*.md"
+                ${pkgs.nodePackages.markdownlint-cli}/bin/markdownlint -c ${config} "${src}/*.md"
                 touch "$out"
               '');
             spell = { src, config }:
-              pkgs.runCommand "spellcheck-slides"
-                {
-                  CSPELL = "${pkgs.nodePackages.cspell}/bin/cspell";
-                  SRC = "${src}";
-                }
-                (code "bash" ''
-                  ${pkgs.nodePackages.cspell}/bin/cspell lint -r ${src} -c ${config} '*.md'
-                  touch "$out"
-                '');
+              pkgs.runCommand "spellcheck-slides" { } (code "bash" ''
+                ${pkgs.nodePackages.cspell}/bin/cspell lint -r ${src} -c ${config} '*.md'
+                touch "$out"
+              '');
           in
           {
             inherit watch lint spell;
